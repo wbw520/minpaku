@@ -506,7 +506,7 @@ class ResNet(nn.Module):
         if self.drop_rate:
             f = F.dropout(f, p=float(self.drop_rate), training=self.training)
         x = self.fc(f)
-        return x, f
+        return x
 
 
 @register_model

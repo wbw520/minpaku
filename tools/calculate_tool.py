@@ -7,6 +7,9 @@ import itertools
 def evaluateTop1(logits, labels):
     with torch.no_grad():
         pred = logits.argmax(dim=1)
+        mask = torch.ne(labels, 255)
+        pred = pred[mask]
+        labels = labels[mask]
         return torch.eq(pred, labels).sum().float().item()/labels.size(0)
 
 
@@ -15,23 +18,21 @@ def evaluateTop5(logits, labels):
         maxk = max((1, 5))
         labels_resize = labels.view(-1, 1)
         _, pred = logits.topk(maxk, 1, True, True)
+        mask = torch.ne(labels, 255)
+        pred = pred[mask]
+        labels_resize = labels_resize[mask]
         return torch.eq(pred, labels_resize).sum().float().item()/labels.size(0)
 
 
 class MetricLog():
     def __init__(self):
-        self.record = {"train": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []},
-                       "val": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []}}
+        self.record = {"train": {"location": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []},
+                                 "function": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []}},
+                       "val": {"location": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []},
+                               "function": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []}}}
 
     def print_metric(self):
-        print("train p loss:", self.record["train"]["p_loss"])
-        print("val p loss:", self.record["val"]["p_loss"])
-        print("train loss:", self.record["train"]["loss"])
-        print("val loss:", self.record["val"]["loss"])
-        print("train acc_1:", self.record["train"]["acc_1"])
-        print("val acc_1:", self.record["val"]["acc_1"])
-        print("train acc_5:", self.record["train"]["acc_5"])
-        print("val acc_5:", self.record["val"]["acc_5"])
+        print(self.record)
 
 
 def matrixs(pre, true, cat, args):
