@@ -47,8 +47,8 @@ class Minpaku():
 
         print(f"{phase} length: ", len(data))
         print("location no image: ", self.no_image["owc"])
-        print("location no label: ", self.no_label["ocm"])
-        print("function no image: ", self.no_image["owc"])
+        print("location no label: ", self.no_label["owc"])
+        print("function no image: ", self.no_image["ocm"])
         print("function no label: ", self.no_label["ocm"])
 
         if phase == "train":
@@ -56,15 +56,15 @@ class Minpaku():
             self.category.update({"location": ll})
             ff = list(self.convert_to_dict(sorted(self.cat_dict_function.items(), key=lambda d: d[1], reverse=True)).keys())
             self.category.update({"function": ff})
-            with open(f"../config/category.json", "w") as c_f:
-                json.dump(self.category, c_f)
+            # with open(f"../config/category.json", "w") as c_f:
+            #     json.dump(self.category, c_f)
         else:
             print("location not in: ", self.not_in["location"])
             print("function not in: ", self.not_in["function"])
             self.not_in = {"location": 0, "function": 0}
 
-        with open(f"../config/{phase}.json", "w") as d_f:
-            json.dump(data, d_f)
+        # with open(f"../config/{phase}.json", "w") as d_f:
+        #     json.dump(data, d_f)
 
         self.no_label = {"owc": 0, "ocm": 0}
         self.no_image = {"owc": 0, "ocm": 0}

@@ -21,7 +21,7 @@ def evaluateTop5(logits, labels):
         mask = torch.ne(labels, 255)
         pred = pred[mask]
         labels_resize = labels_resize[mask]
-        return torch.eq(pred, labels_resize).sum().float().item()/labels.size(0)
+        return torch.eq(pred, labels_resize).sum().float().item()/labels_resize.size(0)
 
 
 class MetricLog():

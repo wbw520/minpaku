@@ -16,9 +16,8 @@ class Identical(nn.Module):
 def load_backbone(args, num_classes):
     bone = create_model(args.base_model, pretrained=args.pre_trained,
                         num_classes=num_classes)
-    if args.data_type == "union":
-        bone.global_pool = Identical()
-        bone.fc = Identical()
+    bone.global_pool = Identical()
+    bone.fc = Identical()
     return bone
 
 
@@ -38,7 +37,8 @@ class MainModel(nn.Module):
 
     def forward(self, x):
         b = x.size()[0]
-        f = self.back_bone(x).view(b, 2048, 7, 7)
+        f = self.back_bone(x)
+        f = f.view(b, 2048, 7, 7)
         f_avg = self.global_pool(f).flatten(1)
         if self.drop_rate:
             f_avg = F.dropout(f_avg, p=float(self.drop_rate), training=self.training)

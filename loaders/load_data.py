@@ -25,13 +25,13 @@ class MinpakuGenetator(Dataset):
         self.transform = transform
 
     def deal_label(self, input, class_index):
-        if input == "empty" or input not in class_index:
+        if input == "e" or input not in class_index:
             return 255
         else:
             return class_index.index(input)
 
     def __getitem__(self, index):
-        ID, img_dir = self.data[index]["id"], self.data[index]["path"],
+        ID, img_dir = self.data[index]["id"], self.data[index]["path"]
         image_path = os.path.join(self.image_root, 'images', img_dir)
         img = Image.open(image_path)
         if img.mode == 'L':
@@ -96,14 +96,14 @@ def prepare_dataloaders(args):
     return {"train": data_loader_train, "val": data_loader_val, "test": data_loader_test}, index, {"location": len(index["location"]), "function": len(index["function"])}
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
-    args = parser.parse_args()
-    prt.init_distributed_mode(args)
-    loaders, category = prepare_dataloaders(args)
-    for i_batch, sample_batch in enumerate(tqdm(loaders["train"])):
-        print(sample_batch["image"].size())
-        break
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
+#     args = parser.parse_args()
+#     prt.init_distributed_mode(args)
+#     loaders, category = prepare_dataloaders(args)
+#     for i_batch, sample_batch in enumerate(tqdm(loaders["train"])):
+#         print(sample_batch["image"].size())
+#         break
 
 
 
