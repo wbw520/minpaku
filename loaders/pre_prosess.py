@@ -5,6 +5,10 @@ import argparse
 from args import get_args_parser
 
 
+selected = {"location": ['AB', 'NU', 'AW', 'AD', 'AA', 'NW', 'AK', 'OJ', 'SE', 'AF', 'SO', 'AE', 'FA', 'OR', 'MS', 'AJ', 'OE', 'AO', 'FL', 'N4', 'AC', 'SF', 'AN', 'FO', 'NV', 'OA', 'NT', 'OF', 'ED', 'AH', 'OI', 'FF', 'EP', 'OC', 'AL', 'RX', 'AM', 'FE', 'SP', 'MW', 'SQ', 'MR', 'OD', 'ES', 'EW', 'MB', 'OV', 'EC', 'AP', 'FX'],
+            "function": ['29', '41', '32', '53', '28', '22', '52', '30', '35', '27', '26', '25', '21', '38', '77', '23', '17', '78', '24', '39', '48', '79', '49', '37', '50', '76', '80', '51', '43', '58', '75', '33', '34', '31', '40', '13', '20']}
+
+
 class Minpaku():
     def __init__(self, args):
         self.args = args
@@ -12,82 +16,99 @@ class Minpaku():
         self.image_root = args.dataset_dir
         self.use_index = args.use_index
         self.use_label_num = args.use_label_num
-        self.cat_dict_function = {}
-        self.cat_dict_location = {}
+        self.cat_dict = {"location": {}, "function": {}}
         self.no_label = {"owc": 0, "ocm": 0}
-        self.no_image = {"owc": 0, "ocm": 0}
+        self.no_image = 0
         self.not_in = {"location": 0, "function": 0}
         self.category = {}
 
+    def construction(self):
+        recorder = {}
+        for location in selected["location"]:
+            current = {}
+            for function in selected["function"]:
+                current.update({function: []})
+            recorder.update({location: current})
+        return recorder
+
     def get_record(self, file_root, phase):
-        data = []
+        data_len = 0
+        overall = self.construction()
         with open(os.path.join(file_root, "minpaku-"+phase+".json"), "r") as load_f:
             all_data = json.load(load_f)
             for iterm in tqdm(all_data):
                 current_data = {"id": iterm["id"], "path": iterm["path"]}
-                condition = False
-                if self.args.data_type != "function":
-                    location_cat = self.filter(iterm, "owc", self.cat_dict_location)
-                    current_data.update({"location": location_cat})
-                    if location_cat != "empty":
-                        condition = True
-                        if phase != "train" and location_cat[0][:2] not in self.category["location"]:
-                            self.not_in["location"] += 1
-                            continue
-                if self.args.data_type != "location":
-                    function_cat = self.filter(iterm, "ocm", self.cat_dict_function)
-                    current_data.update({"function": function_cat})
-                    if function_cat != "empty":
-                        condition = True
-                        if phase != "train" and function_cat[0][:2] not in self.category["function"]:
-                            self.not_in["function"] += 1
-                            continue
-                if condition:
-                    data.append(current_data)
+                cat = self.filter(iterm, self.cat_dict)
+                if cat != "empty":
+                    current_data.update({"location": cat[0]})
+                    current_data.update({"function": cat[1]})
+                    ll = cat[0][0][:2]
+                    ff = cat[1][0][:2]
+                    if phase != "train" and ll not in self.category["location"]:
+                        self.not_in["location"] += 1
+                        continue
+                    if phase != "train" and ff not in self.category["function"]:
+                        self.not_in["function"] += 1
+                        continue
+                    if ll not in selected["location"] or ff not in selected["function"]:
+                        continue
+                    data_len += 1
+                    overall[ll][ff].append(current_data)
 
-        print(f"{phase} length: ", len(data))
-        print("location no image: ", self.no_image["owc"])
+        print(f"{phase} length: ", data_len)
+        print("no image: ", self.no_image)
         print("location no label: ", self.no_label["owc"])
-        print("function no image: ", self.no_image["ocm"])
         print("function no label: ", self.no_label["ocm"])
 
         if phase == "train":
-            ll = list(self.convert_to_dict(sorted(self.cat_dict_location.items(), key=lambda d: d[1], reverse=True)).keys())
+            ll = list(self.convert_to_dict(sorted(self.cat_dict["location"].items(), key=lambda d: d[1], reverse=True)).keys())
+            # print(ll[:50])
+            # print(sorted(self.cat_dict["location"].items(), key=lambda d: d[1], reverse=True))
             self.category.update({"location": ll})
-            ff = list(self.convert_to_dict(sorted(self.cat_dict_function.items(), key=lambda d: d[1], reverse=True)).keys())
+            ff = list(self.convert_to_dict(sorted(self.cat_dict["function"].items(), key=lambda d: d[1], reverse=True)).keys())
+            # print(ff[:40])
+            # print(sorted(self.cat_dict["function"].items(), key=lambda d: d[1], reverse=True))
             self.category.update({"function": ff})
-            # with open(f"../config/category.json", "w") as c_f:
-            #     json.dump(self.category, c_f)
+            with open(f"../config/category.json", "w") as c_f:
+                json.dump(selected, c_f)
         else:
             print("location not in: ", self.not_in["location"])
             print("function not in: ", self.not_in["function"])
             self.not_in = {"location": 0, "function": 0}
 
-        # with open(f"../config/{phase}.json", "w") as d_f:
-        #     json.dump(data, d_f)
+        with open(f"../config/{phase}.json", "w") as d_f:
+            json.dump(overall, d_f)
 
         self.no_label = {"owc": 0, "ocm": 0}
-        self.no_image = {"owc": 0, "ocm": 0}
+        self.no_image = 0
 
-    def filter(self, iterm, data_type_current, category):
-        current_cat = iterm[data_type_current]
+    def filter(self, iterm, category):
         if not os.path.exists(os.path.join(self.image_root, 'images', iterm["path"])):
-            self.no_image[data_type_current] += 1
+            self.no_image += 1
             return "empty"
-        if len(current_cat) == 0:
-            self.no_label[data_type_current] += 1
+        current_cat_location = iterm["owc"]
+        if len(current_cat_location) == 0:
+            self.no_label["owc"] += 1
             return "empty"
+        current_cat_function = iterm["ocm"]
+        if len(current_cat_function) == 0:
+            self.no_label["ocm"] += 1
+            return "empty"
+        self.deal_repeat(current_cat_location, "location", category)
+        self.deal_repeat(current_cat_function, "function", category)
+        return [current_cat_location, current_cat_function]
+
+    def deal_repeat(self, current_cat, type, category):
         repeat_cat = ""
         for cat in current_cat[:self.use_label_num+1]:
             if repeat_cat != cat[:self.use_index]:
                 repeat_cat = cat[:self.use_index]
-                if cat[:self.use_index] not in category:
-                    category.update({cat[:self.use_index]: 1})
+                if cat[:self.use_index] not in category[type]:
+                    category[type].update({cat[:self.use_index]: 1})
                 else:
-                    category[cat[:self.use_index]] += 1
+                    category[type][cat[:self.use_index]] += 1
             else:
                 continue
-        return current_cat
 
     def convert_to_dict(self, in_data):
         D = {}
@@ -107,7 +128,7 @@ class Minpaku():
         self.get_record(self.json_root, "test")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
-    args = parser.parse_args()
-    Minpaku(args).load()
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
+#     args = parser.parse_args()
+#     Minpaku(args).load()

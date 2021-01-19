@@ -1,6 +1,6 @@
 import argparse
 import torch
-from model.extractor import MainModel
+from model.extractor import MainModel, PairLoss
 from loaders.load_data import prepare_dataloaders
 import time
 import datetime
@@ -9,6 +9,7 @@ from pathlib import Path
 from engine import train_one_epoch, evaluate
 from tools.calculate_tool import MetricLog
 from args import get_args_parser
+from model.triplet_loss import TripletLoss
 
 
 def main(args):
@@ -19,9 +20,9 @@ def main(args):
     model = MainModel(args, num_classes)
     model.to(device)
     if args.use_pre:
-        checkpoint = torch.load(f"{args.output_dir}/" + f"{args.data_type}_pair_False_checkpoint.pth", map_location=args.device)
-        model.load_state_dict(checkpoint["model"], strict=True)
-        print("load pre-model " + f"{args.data_type}_pair_False" + " ready")
+        checkpoint = torch.load(f"{args.output_dir}/" + f"{args.data_type}_pair_True_fix_False_checkpoint.pth", map_location=args.device)
+        model.load_state_dict(checkpoint["model"], strict=False)
+        print("load pre-model " + f"{args.data_type}_pair_True_fix" + " ready")
 
     model_without_ddp = model
     output_dir = Path(args.output_dir)
@@ -33,34 +34,53 @@ def main(args):
     print('number of params:', n_parameters)
     params = [p for p in model_without_ddp.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(params, lr=args.lr)
-    criterion = torch.nn.CrossEntropyLoss(ignore_index=255)
+    if args.triplet:
+        criterion = PairLoss(args)
+    else:
+        criterion = torch.nn.CrossEntropyLoss(ignore_index=255)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_drop)
 
+    print(args.data_type)
     print("Start training")
     start_time = time.time()
     log = MetricLog()
     record = log.record
 
     max_acc1 = 0
+    loss = 999
     for epoch in range(args.start_epoch, args.epochs):
         train_one_epoch(args, model, loaders["train"], device, record, epoch, criterion, optimizer)
         lr_scheduler.step()
         evaluate(args, model, loaders["val"], device, record, epoch, criterion)
 
         if args.output_dir:
-            checkpoint_paths = [output_dir / f"{args.data_type}_pair_{args.distance_loss}_checkpoint.pth"]
+            checkpoint_paths = [output_dir / f"{args.data_type}_pair_{args.triplet}_fix_{args.fix}_checkpoint.pth"]
             save_index = False
-            if args.data_type != "union":
-                if record["val"][args.data_type]["acc_1"][epoch-1] > max_acc1:
-                    print("get higher acc save current model")
-                    max_acc1 = record["val"][args.data_type]["acc_1"][epoch]
-                    save_index = True
+            if args.save_mode == "acc":
+                if args.data_type != "union":
+                    if record["val"][args.data_type]["acc_1"][epoch-1] > max_acc1:
+                        print("get higher acc save current model")
+                        max_acc1 = record["val"][args.data_type]["acc_1"][epoch]
+                        save_index = True
+                else:
+                    temp_acc = record["val"]["location"]["acc_1"][epoch-1] + record["val"]["function"]["acc_1"][epoch-1]
+                    if temp_acc > max_acc1:
+                        print("get higher acc save current model")
+                        max_acc1 = temp_acc
+                        save_index = True
             else:
-                temp_acc = record["val"]["location"]["acc_1"][epoch-1] + record["val"]["function"]["acc_1"][epoch-1]
-                if temp_acc > max_acc1:
-                    print("get higher acc save current model")
-                    max_acc1 = temp_acc
-                    save_index = True
+                if args.data_type != "union":
+                    if record["val"][args.data_type]["loss"][epoch-1] < loss:
+                        print("get lower loss save current model")
+                        loss = record["val"][args.data_type]["loss"][epoch]
+                        save_index = True
+                else:
+                    temp_loss = record["val"]["location"]["loss"][epoch-1] + record["val"]["function"]["loss"][epoch-1]
+                    if temp_loss < loss:
+                        print("get lower loss save current model")
+                        loss = temp_loss
+                        save_index = True
+
             if save_index:
                 for checkpoint_path in checkpoint_paths:
                     prt.save_on_master({

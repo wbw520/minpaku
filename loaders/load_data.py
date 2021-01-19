@@ -11,6 +11,8 @@ import argparse
 from args import get_args_parser
 import tools.prepare_things as prt
 import json
+from loaders.pre_prosess import selected, Minpaku
+import csv
 
 
 class MinpakuGenetator(Dataset):
@@ -20,15 +22,24 @@ class MinpakuGenetator(Dataset):
         self.use_index = args.use_index
         self.use_label_num = args.use_label_num
         self.image_root = args.dataset_dir
-        self.data = data
+        self.data, self.index_records = self.reconstruction(data)
         self.class_index = class_index
         self.transform = transform
 
     def deal_label(self, input, class_index):
-        if input == "e" or input not in class_index:
-            return 255
-        else:
-            return class_index.index(input)
+        return class_index.index(input)
+
+    def reconstruction(self, data):
+        index_records = Minpaku(self.args).construction()
+        all_data = []
+        start = 0
+        for ll in selected["location"]:
+            for ff in selected["function"]:
+                current_data = data[ll][ff]
+                length = len(current_data)
+                index_records[ll][ff].append([start, start+length-1])
+                all_data += current_data
+        return all_data, index_records
 
     def __getitem__(self, index):
         ID, img_dir = self.data[index]["id"], self.data[index]["path"]
@@ -58,16 +69,17 @@ class MinpakuGenetator(Dataset):
 
 
 def get_minpaku_data():
-    with open(os.path.join("config/train.json"), "r") as load_train:
+    with open(os.path.join("../config/train.json"), "r") as load_train:
         train_data = json.load(load_train)
+        statistic(train_data)
 
-    with open(os.path.join("config/valid.json"), "r") as load_val:
+    with open(os.path.join("../config/valid.json"), "r") as load_val:
         val_data = json.load(load_val)
 
-    with open(os.path.join("config/test.json"), "r") as load_test:
+    with open(os.path.join("../config/test.json"), "r") as load_test:
         test_data = json.load(load_test)
 
-    with open(os.path.join("config/category.json"), "r") as load_category:
+    with open(os.path.join("../config/category.json"), "r") as load_category:
         category = json.load(load_category)
 
     return {"train": train_data, "val": val_data, "test": test_data}, category
@@ -96,14 +108,35 @@ def prepare_dataloaders(args):
     return {"train": data_loader_train, "val": data_loader_val, "test": data_loader_test}, index, {"location": len(index["location"]), "function": len(index["function"])}
 
 
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
-#     args = parser.parse_args()
-#     prt.init_distributed_mode(args)
-#     loaders, category = prepare_dataloaders(args)
-#     for i_batch, sample_batch in enumerate(tqdm(loaders["train"])):
-#         print(sample_batch["image"].size())
-#         break
+def statistic(data):
+    a = len(selected["location"])
+    b = len(selected["function"])
+    count = np.zeros((a, b))
+    for i in range(len(data)):
+        x = data[i]["location"][0][:2]
+        y = data[i]["function"][0][:2]
+        count[selected["location"].index(x)][selected["function"].index(y)] += 1
+    make_csv(count, "statistic")
+
+
+def make_csv(data, name):
+    print("save count")
+    f_val = open(name + ".csv", "w", encoding="utf-8")
+    csv_writer = csv.writer(f_val)
+    csv_writer.writerow([""] + selected["function"])
+    for i in range(len(data)):
+        csv_writer.writerow([selected["location"][i]] + list(data[i]))
+    f_val.close()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
+    args = parser.parse_args()
+    prt.init_distributed_mode(args)
+    loaders = prepare_dataloaders(args)
+    # for i_batch, sample_batch in enumerate(tqdm(loaders["train"])):
+    #     print(sample_batch["image"].size())
+    #     break
 
 
 

@@ -24,9 +24,12 @@ def get_args_parser():
     parser.add_argument('--use_index', default=2, help='top first k index to use')
     parser.add_argument('--pre_dir', default='pre_model/',
                         help='path of pre-train model')
-    parser.add_argument('--distance_loss', default=False, help='pair loss')
     parser.add_argument('--max_demo', default=20, help='max category for demonstration')
     parser.add_argument('--use_pre', default=False, help='finetune')
+    parser.add_argument('--triplet', default=True, help='whether use triplet loss')
+    parser.add_argument('--extract', default=True, help='whether only use embedding')
+    parser.add_argument('--fix', default=False, help='whether fix feature extractor')
+    parser.add_argument('--save_mode', default="loss", help='how to save model')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--output_dir', default='saved_model',

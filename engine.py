@@ -1,7 +1,6 @@
 import torch
 import tools.calculate_tool as cal
 from tqdm.auto import tqdm
-from model.extractor import pair_loss
 
 
 def train_one_epoch(args, model, data_loader, device, record, epoch, criterion, optimizer):
@@ -31,25 +30,33 @@ def calculation(args, model, mode, data_loader, device, record, epoch, criterion
             labels_location = sample_batch["label_location"].to(device, dtype=torch.int64)
             labels_function = sample_batch["label_function"].to(device, dtype=torch.int64)
             logits, feature = model(inputs)
-            # print(logits["function"].size())
-            # print(logits["location"].size())
-            loss_location = criterion(logits["location"], labels_location)
-            loss_function = criterion(logits["function"], labels_function)
+            if args.triplet:
+                loss_location = criterion(feature, labels_location) + criterion(logits["location"], labels_location)
+                loss_function = criterion(feature, labels_function) + criterion(logits["function"], labels_function)
+            else:
+                loss_location = criterion(logits["location"], labels_location)
+                loss_function = criterion(logits["function"], labels_function)
             loss = loss_location + loss_function
             running_loss["location"] += loss_location.item()
-            running_corrects_1["location"] += cal.evaluateTop1(logits["location"], labels_location)
-            running_corrects_5["location"] += cal.evaluateTop5(logits["location"], labels_location)
             running_loss["function"] += loss_function.item()
-            running_corrects_1["function"] += cal.evaluateTop1(logits["function"], labels_function)
-            running_corrects_5["function"] += cal.evaluateTop5(logits["function"], labels_function)
+            if not args.triplet:
+                running_corrects_1["location"] += cal.evaluateTop1(logits["location"], labels_location)
+                running_corrects_5["location"] += cal.evaluateTop5(logits["location"], labels_location)
+                running_corrects_1["function"] += cal.evaluateTop1(logits["function"], labels_function)
+                running_corrects_5["function"] += cal.evaluateTop5(logits["function"], labels_function)
         else:
             inputs = sample_batch["image"].to(device, dtype=torch.float32)
             labels = sample_batch["label_"+args.data_type].to(device, dtype=torch.int64)
+            labels_name = sample_batch[args.data_type+"_name"]
             logits, feature = model(inputs)
-            loss = criterion(logits[args.data_type], labels)
+            if args.triplet:
+                loss = criterion(feature, labels_name)
+            else:
+                loss = criterion(logits[args.data_type], labels)
             running_loss[args.data_type] += loss.item()
-            running_corrects_1[args.data_type] += cal.evaluateTop1(logits[args.data_type], labels)
-            running_corrects_5[args.data_type] += cal.evaluateTop5(logits[args.data_type], labels)
+            if not args.triplet:
+                running_corrects_1[args.data_type] += cal.evaluateTop1(logits[args.data_type], labels)
+                running_corrects_5[args.data_type] += cal.evaluateTop5(logits[args.data_type], labels)
         if mode == "train":
             loss.backward()
             optimizer.step()
