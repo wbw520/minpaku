@@ -117,13 +117,7 @@ class TripletLoss(nn.Module):
         self.device = device
         print("use triplet loss")
 
-    def forward(self, input, target, ignore=255, **kwargs):
-        mask = torch.ne(target, ignore)
-        input = input[mask]
-        target = target[mask]
-        # print(input.size())
-        # print(target.size())
-        # print(mask.size())
+    def forward(self, input, target, **kwargs):
         return TripletSemiHardLoss(target, input, self.device)
 
 

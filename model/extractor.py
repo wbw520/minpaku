@@ -42,9 +42,10 @@ class MainModel(nn.Module):
     def __init__(self, args, num_classes):
         super(MainModel, self).__init__()
         self.args = args
-        self.num_features = 2048
+        self.num_features = 512
         self.drop_rate = 0.0
         self.back_bone = load_backbone(args, 1000)
+        # self.back_bone.conv1 = nn.Conv2d(1, 64, 3, stride=2, padding=1, bias=False)
         if args.fix:
             fix_parameter(self.back_bone, [""], mode="fix")
         self.global_pool = SelectAdaptivePool2d(pool_type="avg")
@@ -60,10 +61,10 @@ class MainModel(nn.Module):
     def forward(self, x):
         b = x.size()[0]
         f = self.back_bone(x)
-        f = f.view(b, 2048, 7, 7)
+        f = f.view(b, 512, 7, 7)
         f_avg = self.global_pool(f).flatten(1)
-        if self.drop_rate:
-            f_avg = F.dropout(f_avg, p=float(self.drop_rate), training=self.training)
+        # if self.drop_rate:
+        #     f_avg = F.dropout(f_avg, p=float(self.drop_rate), training=self.training)
         if self.args.data_type == "union":
             if self.args.extract:
                 return None, f_avg

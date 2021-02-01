@@ -5,8 +5,17 @@ import argparse
 from args import get_args_parser
 
 
-selected = {"location": ['AB', 'NU', 'AW', 'AD', 'AA', 'NW', 'AK', 'OJ', 'SE', 'AF', 'SO', 'AE', 'FA', 'OR', 'MS', 'AJ', 'OE', 'AO', 'FL', 'N4', 'AC', 'SF', 'AN', 'FO', 'NV', 'OA', 'NT', 'OF', 'ED', 'AH', 'OI', 'FF', 'EP', 'OC', 'AL', 'RX', 'AM', 'FE', 'SP', 'MW', 'SQ', 'MR', 'OD', 'ES', 'EW', 'MB', 'OV', 'EC', 'AP', 'FX'],
-            "function": ['29', '41', '32', '53', '28', '22', '52', '30', '35', '27', '26', '25', '21', '38', '77', '23', '17', '78', '24', '39', '48', '79', '49', '37', '50', '76', '80', '51', '43', '58', '75', '33', '34', '31', '40', '13', '20']}
+selected = {"location": ['AB', 'NU', 'AW', 'AD', 'AA', 'NW', 'AK', 'OJ', 'AF', 'SE', 'SO', 'FA', 'AE', 'MS', 'OR', 'AJ',
+                         'OE', 'AO', 'FL', 'N4', 'AC', 'SF', 'AN', 'FO', 'NV', 'OA', 'NT', 'OF', 'ED', 'OC', 'AL', 'FF',
+                         'AH', 'OI', 'EP', 'RX', 'FE', 'AM', 'SP', 'MW', 'SQ', 'MR', 'OD', 'M1', 'ES', 'EW', 'MB', 'OV',
+                         'EC', 'AP'],
+            "function": ['415', '524', '291', '532', '412', '322', '227', '323', '301', '534', '796', '285', '778',
+                         '411', '264', '252', '292', '353', '531', '286', '536', '535', '482', '386', '782', '324',
+                         '283', '172', '276', '413', '352', '326', '241', '321', '354', '527', '414', '788', '289',
+                         '214', '293', '539', '272', '396', '294', '804', '231', '273', '237', '226', '585', '218',
+                         '435', '224', '251', '302', '776', '789', '501', '436', '764', '212', '257', '243', '372',
+                         '282', '779', '769', '263', '492', '416', '296', '513', '211', '805', '481', '356', '541',
+                         '493', '525']}
 
 
 class Minpaku():
@@ -33,7 +42,7 @@ class Minpaku():
 
     def get_record(self, file_root, phase):
         data_len = 0
-        overall = self.construction()
+        overall = []
         with open(os.path.join(file_root, "minpaku-"+phase+".json"), "r") as load_f:
             all_data = json.load(load_f)
             for iterm in tqdm(all_data):
@@ -42,18 +51,10 @@ class Minpaku():
                 if cat != "empty":
                     current_data.update({"location": cat[0]})
                     current_data.update({"function": cat[1]})
-                    ll = cat[0][0][:2]
-                    ff = cat[1][0][:2]
-                    if phase != "train" and ll not in self.category["location"]:
-                        self.not_in["location"] += 1
-                        continue
-                    if phase != "train" and ff not in self.category["function"]:
-                        self.not_in["function"] += 1
-                        continue
-                    if ll not in selected["location"] or ff not in selected["function"]:
+                    if len(cat[0]) == 0 or len(cat[1]) == 0:
                         continue
                     data_len += 1
-                    overall[ll][ff].append(current_data)
+                    overall.append(current_data)
 
         print(f"{phase} length: ", data_len)
         print("no image: ", self.no_image)
@@ -63,11 +64,10 @@ class Minpaku():
         if phase == "train":
             ll = list(self.convert_to_dict(sorted(self.cat_dict["location"].items(), key=lambda d: d[1], reverse=True)).keys())
             # print(ll[:50])
-            # print(sorted(self.cat_dict["location"].items(), key=lambda d: d[1], reverse=True))
             self.category.update({"location": ll})
             ff = list(self.convert_to_dict(sorted(self.cat_dict["function"].items(), key=lambda d: d[1], reverse=True)).keys())
-            # print(ff[:40])
-            # print(sorted(self.cat_dict["function"].items(), key=lambda d: d[1], reverse=True))
+            # print(ff[:80])
+            # print(sorted(self.cat_dict["function"].items(), key=lambda d: d[1], reverse=True)[:80])
             self.category.update({"function": ff})
             with open(f"../config/category.json", "w") as c_f:
                 json.dump(selected, c_f)
@@ -94,19 +94,27 @@ class Minpaku():
         if len(current_cat_function) == 0:
             self.no_label["ocm"] += 1
             return "empty"
-        self.deal_repeat(current_cat_location, "location", category)
-        self.deal_repeat(current_cat_function, "function", category)
-        return [current_cat_location, current_cat_function]
+        self.deal_repeat(current_cat_location, "location", category, 2)
+        self.deal_repeat(current_cat_function, "function", category, 3)
+        new_cat_ll = []
+        new_cat_ff = []
+        for ll in current_cat_location:
+            if ll[:2] in selected["location"]:
+                new_cat_ll.append(ll[:2])
+        for ff in current_cat_function:
+            if ff in selected["function"]:
+                new_cat_ff.append(ff)
+        return [new_cat_ll, new_cat_ff]
 
-    def deal_repeat(self, current_cat, type, category):
-        repeat_cat = ""
-        for cat in current_cat[:self.use_label_num+1]:
-            if repeat_cat != cat[:self.use_index]:
-                repeat_cat = cat[:self.use_index]
-                if cat[:self.use_index] not in category[type]:
-                    category[type].update({cat[:self.use_index]: 1})
+    def deal_repeat(self, current_cat, type, category, use_index):
+        repeat_cat = []
+        for cat in current_cat:
+            if cat[:use_index] not in repeat_cat:
+                repeat_cat.append(cat[:use_index])
+                if cat[:use_index] not in category[type]:
+                    category[type].update({cat[:use_index]: 1})
                 else:
-                    category[type][cat[:self.use_index]] += 1
+                    category[type][cat[:use_index]] += 1
             else:
                 continue
 
@@ -128,7 +136,7 @@ class Minpaku():
         self.get_record(self.json_root, "test")
 
 
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
-#     args = parser.parse_args()
-#     Minpaku(args).load()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('model training and evaluation script', parents=[get_args_parser()])
+    args = parser.parse_args()
+    Minpaku(args).load()

@@ -27,16 +27,12 @@ def plot_embedding(data, label, cat, title):
     data = (data - x_min) / (x_max - x_min)
     fig = plt.figure(dpi=600, facecolor='#FFFFFF')
     for i in range(len(data)):
-        if i % 1000 == 0:
+        if i % 100 == 0:
             print(f"{i}/{len(data)}")
-        if label[i][:2] not in cat:
-            continue
-        main_color = main_cat[cat.index(label[i][:2])]
-        sub_color = sub_cat[int(label[i][2])]
+        main_color = main_cat[cat.index(label[i])]
         plt.scatter([data[i][0]], [data[i][1]], color=main_color, zorder=5, s=50)
-        plt.scatter([data[i][0]], [data[i][1]], color=sub_color, zorder=10, s=8)
     plt.xticks()
     plt.yticks()
     plt.title(title, fontsize=14)
-    plt.savefig(title + "_t-SNE.png")
+    # plt.savefig(title + "_t-SNE.png")
     plt.show()

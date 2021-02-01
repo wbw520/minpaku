@@ -14,13 +14,14 @@ from model.triplet_loss import TripletLoss
 
 def main(args):
     prt.init_distributed_mode(args)
-    loaders, category, num_classes = prepare_dataloaders(args)
+    sampler = {"train": [400, 15, 25], "val": [100, 15, 25], "test": None}
+    loaders, category, num_classes = prepare_dataloaders(args, sampler)
     print(num_classes)
     device = torch.device(args.device)
     model = MainModel(args, num_classes)
     model.to(device)
     if args.use_pre:
-        checkpoint = torch.load(f"{args.output_dir}/" + f"{args.data_type}_pair_True_fix_False_checkpoint.pth", map_location=args.device)
+        checkpoint = torch.load(f"{args.output_dir}/" + f"{args.data_type}_checkpoint.pth", map_location=args.device)
         model.load_state_dict(checkpoint["model"], strict=False)
         print("load pre-model " + f"{args.data_type}_pair_True_fix" + " ready")
 
@@ -34,10 +35,8 @@ def main(args):
     print('number of params:', n_parameters)
     params = [p for p in model_without_ddp.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(params, lr=args.lr)
-    if args.triplet:
-        criterion = PairLoss(args)
-    else:
-        criterion = torch.nn.CrossEntropyLoss(ignore_index=255)
+    # criterion = TripletLoss(device)
+    criterion = torch.nn.CrossEntropyLoss().cuda()
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_drop)
 
     print(args.data_type)
@@ -54,7 +53,7 @@ def main(args):
         evaluate(args, model, loaders["val"], device, record, epoch, criterion)
 
         if args.output_dir:
-            checkpoint_paths = [output_dir / f"{args.data_type}_pair_{args.triplet}_fix_{args.fix}_checkpoint.pth"]
+            checkpoint_paths = [output_dir / f"{args.data_type}_checkpoint.pth"]
             save_index = False
             if args.save_mode == "acc":
                 if args.data_type != "union":

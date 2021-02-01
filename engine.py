@@ -17,7 +17,6 @@ def evaluate(args, model, data_loader, device, record, epoch, criterion):
 def calculation(args, model, mode, data_loader, device, record, epoch, criterion, optimizer=None):
     L = len(data_loader)
     running_loss = {"location": 0.0, "function": 0.0}
-    running_p_loss = {"location": 0.0, "function": 0.0}
     running_corrects_1 = {"location": 0.0, "function": 0.0}
     running_corrects_5 = {"location": 0.0, "function": 0.0}
     print("start " + mode + " :" + str(epoch))
@@ -29,10 +28,14 @@ def calculation(args, model, mode, data_loader, device, record, epoch, criterion
             inputs = sample_batch["image"].to(device, dtype=torch.float32)
             labels_location = sample_batch["label_location"].to(device, dtype=torch.int64)
             labels_function = sample_batch["label_function"].to(device, dtype=torch.int64)
+            # ff_name = sample_batch["function_name"]
+            # ll_name = sample_batch["location_name"]
+            # print(ff_name)
+            # print(ll_name)
             logits, feature = model(inputs)
             if args.triplet:
-                loss_location = criterion(feature, labels_location) + criterion(logits["location"], labels_location)
-                loss_function = criterion(feature, labels_function) + criterion(logits["function"], labels_function)
+                loss_location = criterion(feature, labels_location)
+                loss_function = criterion(feature, labels_function)
             else:
                 loss_location = criterion(logits["location"], labels_location)
                 loss_function = criterion(logits["function"], labels_function)
@@ -46,11 +49,11 @@ def calculation(args, model, mode, data_loader, device, record, epoch, criterion
                 running_corrects_5["function"] += cal.evaluateTop5(logits["function"], labels_function)
         else:
             inputs = sample_batch["image"].to(device, dtype=torch.float32)
-            labels = sample_batch["label_"+args.data_type].to(device, dtype=torch.int64)
-            labels_name = sample_batch[args.data_type+"_name"]
+            labels = sample_batch["label_"+args.data_type].to(device, dtype=torch.int64)  # _"+args.data_type
+            # labels_name = sample_batch[args.data_type+"_name"]
             logits, feature = model(inputs)
             if args.triplet:
-                loss = criterion(feature, labels_name)
+                loss = criterion(feature, labels)
             else:
                 loss = criterion(logits[args.data_type], labels)
             running_loss[args.data_type] += loss.item()
@@ -63,28 +66,22 @@ def calculation(args, model, mode, data_loader, device, record, epoch, criterion
 
     if args.data_type == "union":
         location_epoch_loss = round(running_loss["location"]/L, 3)
-        location_pp_loss = round(running_p_loss["location"]/L, 3)
         location_epoch_acc_1 = round(running_corrects_1["location"]/L, 3)
         location_epoch_acc_5 = round(running_corrects_5["location"]/L, 3)
         function_epoch_loss = round(running_loss["function"]/L, 3)
-        function_pp_loss = round(running_p_loss["function"]/L, 3)
         function_epoch_acc_1 = round(running_corrects_1["function"]/L, 3)
         function_epoch_acc_5 = round(running_corrects_5["function"]/L, 3)
         record[mode]["location"]["loss"].append(location_epoch_loss)
-        record[mode]["location"]["p_loss"].append(location_pp_loss)
         record[mode]["location"]["acc_1"].append(location_epoch_acc_1)
         record[mode]["location"]["acc_5"].append(location_epoch_acc_5)
         record[mode]["function"]["loss"].append(function_epoch_loss)
-        record[mode]["function"]["p_loss"].append(function_pp_loss)
         record[mode]["function"]["acc_1"].append(function_epoch_acc_1)
         record[mode]["function"]["acc_5"].append(function_epoch_acc_5)
     else:
         epoch_loss = round(running_loss[args.data_type]/L, 3)
-        pp_loss = round(running_p_loss[args.data_type]/L, 3)
         epoch_acc_1 = round(running_corrects_1[args.data_type]/L, 3)
         epoch_acc_5 = round(running_corrects_5[args.data_type]/L, 3)
         record[mode][args.data_type]["loss"].append(epoch_loss)
-        record[mode][args.data_type]["p_loss"].append(pp_loss)
         record[mode][args.data_type]["acc_1"].append(epoch_acc_1)
         record[mode][args.data_type]["acc_5"].append(epoch_acc_5)
 

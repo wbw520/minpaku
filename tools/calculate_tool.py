@@ -26,13 +26,23 @@ def evaluateTop5(logits, labels):
 
 class MetricLog():
     def __init__(self):
-        self.record = {"train": {"location": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []},
-                                 "function": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []}},
-                       "val": {"location": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []},
-                               "function": {"loss": [], "p_loss": [], "acc_1": [], "acc_5": []}}}
+        self.record = {"train": {"location": {"loss": [], "acc_1": [], "acc_5": []},
+                                 "function": {"loss": [], "acc_1": [], "acc_5": []}},
+                       "val": {"location": {"loss": [], "acc_1": [], "acc_5": []},
+                               "function": {"loss": [], "acc_1": [], "acc_5": []}}}
 
     def print_metric(self):
-        print(self.record)
+        print("train: ")
+        print("location: ")
+        print(self.record["train"]["location"])
+        print("function: ")
+        print(self.record["train"]["function"])
+        print("val: ")
+        print("location: ")
+        print(self.record["val"]["location"])
+        print("function: ")
+        print(self.record["val"]["function"])
+
 
 
 def matrixs(pre, true, cat, args):
